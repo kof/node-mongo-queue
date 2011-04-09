@@ -127,6 +127,8 @@ class exports.Template
 # A worker polls for new jobs and executes them.
 class exports.Worker extends require('events').EventEmitter
   constructor: (@connection, @templates, options) ->
+    options or options = {}
+
     @name = [ require('os').hostname(), process.pid ].join ':'
     @timeout = options.timeout or 1000
 
