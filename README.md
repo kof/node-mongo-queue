@@ -1,6 +1,8 @@
 mojo -- a MongoDB job queue
 ===========================
 
+**WARNING** API is subject to change.
+
 Mojo is a job queue inspired by Resque, but is trying to improve certain
 shortcomings of Resque's design. In particular, mojo makes it impossible
 to loose jobs. Jobs are kept in the database until workers have successfully
@@ -8,6 +10,8 @@ completed them and only then are they removed from the database.
 
 Even if your host or application crashes hard (without chance to catch the
 exception in the application's runtime), no jobs are lost.
+
+
 
 Example
 -------
@@ -21,7 +25,7 @@ Example
         @complete()
 
     # Create a connection to the database
-    db = ... an opened mongodb-node-native database
+    db = ... an opened node-mongodb-native database
     connection = new mojo.Connection db, {}
 
     # Put some jobs into the queue
@@ -34,3 +38,9 @@ Example
     worker = new mojo.Worker connection, [ Addition ], {}
     worker.poll()
 
+
+
+Bugs
+----
+
+Lots of them. Probably. I haven't checked though.
