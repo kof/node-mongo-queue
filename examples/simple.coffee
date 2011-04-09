@@ -15,18 +15,15 @@ class Addition extends mojo.Template
     else
       @release()
 
+connection = new mojo.Connection
 
-db = new mongodb.Db 'test', server, {}
-db.open (error, client) ->
-  connection = new mojo.Connection client, {}
+# Insert the Addition job into the queue
+connection.enqueue Addition.name, 3, 2, ->
+connection.enqueue Addition.name, 3, 2, ->
+connection.enqueue Addition.name, 3, 2, ->
+connection.enqueue Addition.name, 3, 2, ->
+connection.enqueue Addition.name, 3, 2, ->
 
-  # Insert the Addition job into the queue
-  connection.enqueue Addition.name, 3, 2, ->
-  connection.enqueue Addition.name, 3, 2, ->
-  connection.enqueue Addition.name, 3, 2, ->
-  connection.enqueue Addition.name, 3, 2, ->
-  connection.enqueue Addition.name, 3, 2, ->
-
-  # Create a worker which will process the Addition jobs
-  worker = new mojo.Worker connection, [ Addition ], {}
-  worker.poll()
+# Create a worker which will process the Addition jobs
+worker = new mojo.Worker connection, [ Addition ], {}
+worker.poll()

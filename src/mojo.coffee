@@ -10,24 +10,49 @@
 
 #### Connection
 
+# Mojo is backed by MongoDB
+mongodb = require 'mongodb'
+
+
 # The **Connection** class wraps the connection to MongoDB. It includes
 # methods to manipulate (add, remove, clear, ...) jobs in the queues.
 class exports.Connection
   # Initialize with a reference to the MongoDB and optional options
   # hash. Two opitions are currently supported: expires and timeout.
-  constructor: (@db, options) ->
-    @db.collection 'mojo', (err, collection) =>
-      @mojo = collection
+  constructor: (options) ->
+    options or options = {}
+    @ensureConnection options
 
     @expires = options.expires or 60 * 60 * 1000
     @timeout = options.timeout or 10 * 1000
+
+
+  # Open a connection to the MongoDB server. Queries created while we are
+  # connecting are queued and executed after the connection is established.
+  ensureConnection: (opt) ->
+    @queue = []
+
+    # TODO: support replica sets
+    server = new mongodb.Server opt.host || '127.0.0.1', opt.port || 27017
+    new mongodb.Db(opt.db, server, {}).open (err, db) =>
+      db.collection 'mojo', (err, collection) =>
+        @mojo = collection
+        fn(collection) for fn in @queue
+        delete @queue
+
+
+  # Execute the given function if the connection to the database has been
+  # established. If not, put it into a queue so it can be executed later.
+  exec: (fn) ->
+    @queue and @queue.push(fn) or fn(@mojo)
 
 
   # Remove all jobs from the queue. This is a brute-force method, useful if
   # you want to reset mojo, for example in a test environment. Note that it
   # resets only a single queue, and not all.
   clear: (queue, callback) ->
-    @mojo.remove { queue }, callback
+    @exec (mojo) ->
+      mojo.remove { queue }, callback
 
 
   # Insert a new job into the queue. A job is just an array of arguments
@@ -35,7 +60,8 @@ class exports.Connection
   # up to the individual workers.
   enqueue: (queue, args..., callback)->
     expires = new Date new Date().getTime() + @expires
-    @mojo.insert { queue, expires, args }, callback
+    @exec (mojo) ->
+      mojo.insert { queue, expires, args }, callback
 
 
   # Fetch the next job from the queue. The owner argument is used to identify
@@ -43,30 +69,34 @@ class exports.Connection
   # and process ID, you can later identify stuck workers.
   next: (queue, owner, callback) ->
     now = new Date; timeout = new Date(now.getTime() + @timeout)
-    @mojo.findAndModify { queue, expires: { $gt: now }, owner: null },
-      'expires', { $set: { timeout, owner } }, { new: 1 }, callback
+    @exec (mojo) ->
+      mojo.findAndModify { queue, expires: { $gt: now }, owner: null },
+        'expires', { $set: { timeout, owner } }, { new: 1 }, callback
 
 
   # After you are done with the job, mark it as completed. This will remove
   # the job from MongoDB.
   complete: (doc, callback) ->
-    @mojo.findAndModify { _id: doc._id },
-      'expires', {}, { remove: 1 }, callback
+    @exec (mojo) ->
+      mojo.findAndModify { _id: doc._id },
+        'expires', {}, { remove: 1 }, callback
 
 
   # You can also refuse to complete the job and leave it in the database
   # so that other workers can pick it up.
   release: (doc, callback) ->
-    @mojo.findAndModify { _id: doc._id },
-      'expires', { $unset: { timeout: 1, owner: 1 } }, { new: 1 }, callback
+    @exec (mojo) ->
+      mojo.findAndModify { _id: doc._id },
+        'expires', { $unset: { timeout: 1, owner: 1 } }, { new: 1 }, callback
 
 
   # Release all timed out jobs, this makes them available for future
   # clients again. You should call this method regularly, possibly from
   # within the workers after every couple completed jobs.
   cleanup: (queue, callback) ->
-    @mojo.update { timeout: { $lt: new Date } },
-        { $unset: { timeout: 1, owner: 1 } }, { multi: 1 }, callback
+    @exec (mojo) ->
+      mojo.update { timeout: { $lt: new Date } },
+          { $unset: { timeout: 1, owner: 1 } }, { multi: 1 }, callback
 
 
 
