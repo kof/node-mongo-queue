@@ -33,7 +33,7 @@ class exports.Connection
   # Insert a new job into the queue. A job is just an array of arguments
   # which are inserted into a queue. What these arguments mean is entirely
   # up to the individual workers.
-  insert: (queue, args..., callback)->
+  enqueue: (queue, args..., callback)->
     expires = new Date new Date().getTime() + @expires
     @mojo.insert { queue, expires, args }, callback
 
@@ -50,14 +50,14 @@ class exports.Connection
   # After you are done with the job, mark it as completed. This will remove
   # the job from MongoDB.
   complete: (doc, callback) ->
-    @mojo.findAndModify { _id: doc._id, owner: doc.owner },
+    @mojo.findAndModify { _id: doc._id },
       'expires', {}, { remove: 1 }, callback
 
 
   # You can also refuse to complete the job and leave it in the database
   # so that other workers can pick it up.
   release: (doc, callback) ->
-    @mojo.findAndModify { _id: doc._id, owner: doc.owner },
+    @mojo.findAndModify { _id: doc._id },
       'expires', { $unset: { timeout: 1, owner: 1 } }, { new: 1 }, callback
 
 
@@ -69,60 +69,78 @@ class exports.Connection
         { $unset: { timeout: 1, owner: 1 } }, { multi: 1 }, callback
 
 
-# Generate a number of random characters. Uses the crypto module.
-crypto = require 'crypto'
-random = (num) ->
-  crypto.createHash('sha').update('' + new Date).digest('hex').substr(1, num)
 
-hostname = ->
-  require('os').hostname()
+#### Template
+
+# Extend the **Template** class to define a job. You need to implement the
+# `perform` method. That method will be called when there is work to be done.
+class exports.Template
+  constructor: (@worker, @doc) ->
+
+  # Only here to bind `this` to this instance in @perform.
+  invoke: ->
+    @perform.apply(@, @doc.args)
+
+  perform: (args...) ->
+    throw new Error('Yo, you need to implement me!')
+
+  complete: (err) ->
+    @worker.complete @doc
+
+  release: ->
+    @worker.release @doc
+
+
 
 #### Worker
 
-# Extend the **Worker* class to create your own workers. All you need to
-# implement is the `process` method, it will be called when a new job
-# needs to be processed.
+# A worker polls for new jobs and executes them.
 class exports.Worker extends require('events').EventEmitter
-  constructor: (@connection, @queues, options) ->
-    @name = [ hostname(), process.pid, random(7) ].join ':'
+  constructor: (@connection, @templates, options) ->
+    @name = [ require('os').hostname(), process.pid ].join ':'
     @timeout = options.timeout or 1000
 
-    @maxPending = options.poolSize or 3
+    @workers = options.workers or 3
     @pending = 0
 
-  process: (job) ->
-    @emit 'error', new Error('You need to implement the perform method')
 
   poll: ->
-    if @pending >= @count
-      return @sleep
+    # If there are too many pending jobs, sleep for a bit.
+    if @pending >= @workers
+      return @sleep()
 
-    # Check the queues in round-robin order, one in each iteration.
-    queue = @queues.shift()
-    @queues.push queue
+    # Check the templates in round-robin order, one in each iteration.
+    template = @templates.shift()
+    @templates.push template
 
-    @connection.next queue, @name, (err, doc) =>
-      if doc is null
+    @connection.next template.name, @name, (err, doc) =>
+      if doc is undefined
         if err
           @emit 'error', err
-        @sleep
+        @sleep()
       else
         ++@pending
-        @process doc
+        new template(@, doc).invoke()
+        @poll()
 
-  # Sleep for a bit and then try to poll the queue again.
+
+  # Sleep for a bit and then try to poll the queue again. If a timeout is
+  # already active make sure to clear it first.
   sleep: ->
-    setTimeout =>
-      @poll
+    clearTimeout @pollTimeout if @pollTimeout
+    @pollTimeout = setTimeout =>
+      @pollTimeout = null
+      @poll()
     , @timeout
+
 
   complete: (doc) ->
     @connection.complete doc, =>
       --@pending
-      @poll
+      @poll()
 
   release: (doc) ->
     @connection.release doc, =>
       --@pending
-      @poll
+      @poll()
 
