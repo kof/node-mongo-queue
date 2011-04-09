@@ -1,7 +1,4 @@
 
-mongodb = require 'mongodb'
-server = new mongodb.Server "127.0.0.1", 27017, {}
-
 mojo = require '../src/mojo'
 
 # Declare the job. Each time there is work to do, a new instance of this
@@ -15,6 +12,7 @@ class Addition extends mojo.Template
     else
       @release()
 
+
 connection = new mojo.Connection
 
 # Insert the Addition job into the queue
@@ -25,5 +23,5 @@ connection.enqueue Addition.name, 3, 2, ->
 connection.enqueue Addition.name, 3, 2, ->
 
 # Create a worker which will process the Addition jobs
-worker = new mojo.Worker connection, [ Addition ], {}
+worker = new mojo.Worker connection, [ Addition ]
 worker.poll()
