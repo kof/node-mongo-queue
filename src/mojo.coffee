@@ -113,12 +113,18 @@ class exports.Connection
 class exports.Template
   constructor: (@worker, @doc) ->
 
-  # Only here to bind `this` to this instance in @perform.
+  # Bind `this` to this instance in @perform and catch any exceptions.
   invoke: ->
-    @perform.apply(@, @doc.args)
+    try
+      @perform.apply @, @doc.args
+    catch err
+      @complete err
 
+
+  # Implement this method. If you don't, kittens will die!
   perform: (args...) ->
-    throw new Error('Yo, you need to implement me!')
+    throw new Error 'Yo, you need to implement me!'
+
 
   # As per unwritten standard, first argument in callbacks is an error
   # indicator. So you can pass this method around as a completion callback.
@@ -174,8 +180,9 @@ class exports.Worker extends require('events').EventEmitter
 
   complete: (err, doc) ->
     cb = => --@pending; @poll()
+
     if err?
-      @connection.release(doc, cb)
+      @connection.release doc, cb
     else
-      @connection.complete(doc, cb)
+      @connection.complete doc, cb
 
