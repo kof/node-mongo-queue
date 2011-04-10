@@ -17,6 +17,7 @@ mongodb = require 'mongodb'
 # The **Connection** class wraps the connection to MongoDB. It includes
 # methods to manipulate (add, remove, clear, ...) jobs in the queues.
 class exports.Connection
+
   # Initialize with a reference to the MongoDB and optional options
   # hash. Two opitions are currently supported: expires and timeout.
   constructor: (options) ->
