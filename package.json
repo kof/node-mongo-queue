@@ -1,0 +1,12 @@
+{
+  "name": "mojo",
+  "description": "Node.js job queue backed by MongoDB",
+  "keywords": ["jobqueue", "mongodb"],
+  "author": "Tomas Carnecky",
+  "version": "0.0.1",
+  "licenses": [{ "type": "Unlicense", "url": "http://unlicense.org/" }],
+  "engines": { "node": ">=0.4.0" },
+  "directories": { "lib": "./lib" },
+  "main": "./lib/mojo"
+}
+
