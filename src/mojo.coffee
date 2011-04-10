@@ -108,6 +108,8 @@ class exports.Connection
 
 # Extend the **Template** class to define a job. You need to implement the
 # `perform` method. That method will be called when there is work to be done.
+# After you are done with the job, call `@complete` to signal the worker that
+# it can process the next job.
 class exports.Template
   constructor: (@worker, @doc) ->
 
@@ -118,11 +120,10 @@ class exports.Template
   perform: (args...) ->
     throw new Error('Yo, you need to implement me!')
 
+  # As per unwritten standard, first argument in callbacks is an error
+  # indicator. So you can pass this method around as a completion callback.
   complete: (err) ->
-    @worker.complete @doc
-
-  release: ->
-    @worker.release @doc
+    @worker.complete err, @doc
 
 
 
@@ -171,13 +172,10 @@ class exports.Worker extends require('events').EventEmitter
     , @timeout
 
 
-  complete: (doc) ->
-    @connection.complete doc, =>
-      --@pending
-      @poll()
-
-  release: (doc) ->
-    @connection.release doc, =>
-      --@pending
-      @poll()
+  complete: (err, doc) ->
+    cb = => --@pending; @poll()
+    if err?
+      @connection.release(doc, cb)
+    else
+      @connection.complete(doc, cb)
 
