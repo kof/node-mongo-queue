@@ -38,8 +38,11 @@ class exports.Connection
     new mongodb.Db(opt.db, server, {}).open (err, db) =>
       db.collection 'mojo', (err, collection) =>
         @mojo = collection
-        fn(collection) for fn in @queue
+
+        fn(collection) for fn in @queue if @queue
         delete @queue
+
+        collection.ensureIndex [ ['queue'], ['expires'], ['owner'] ], ->
 
 
   # Execute the given function if the connection to the database has been
