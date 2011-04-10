@@ -157,7 +157,8 @@ class exports.Worker extends require('events').EventEmitter
       else
         ++@pending
         new template(@, doc).invoke()
-        @poll()
+        process.nextTick =>
+          @poll()
 
 
   # Sleep for a bit and then try to poll the queue again. If a timeout is
