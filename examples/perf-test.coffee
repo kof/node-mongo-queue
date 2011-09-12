@@ -21,9 +21,12 @@ class Noop extends mojo.Template
 # Add 100k jobs to the queue
 numAdded = 0
 producer = ->
-  if ++numAdded < 100000
+  numThisRound = 0
+  while numThisRound < 100 and ++numAdded < 100000
     connection.enqueue Noop.name, null, ->
+    ++numThisRound
 
+  if numAdded < 100000
     process.nextTick producer
 
 producer()
