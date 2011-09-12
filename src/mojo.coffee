@@ -157,15 +157,15 @@ class exports.Worker extends require('events').EventEmitter
     @templates.push template
 
     @connection.next template.name, @name, (err, doc) =>
-      if doc is undefined
-        if err
-          @emit 'error', err
-        @sleep()
-      else
+      if err?
+        @emit 'error', err
+      else if doc?
         ++@pending
         new template(@, doc).invoke()
         process.nextTick =>
           @poll()
+
+      @sleep()
 
 
   # Sleep for a bit and then try to poll the queue again. If a timeout is
