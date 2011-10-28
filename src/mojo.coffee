@@ -35,14 +35,19 @@ class exports.Connection
 
     # TODO: support replica sets
     server = new mongodb.Server opt.host || '127.0.0.1', opt.port || 27017
-    new mongodb.Db(opt.db, server, {}).open (err, db) =>
-      db.collection 'mojo', (err, collection) =>
-        @mojo = collection
+    new mongodb.Db(opt.db || 'queue', server, {}).open (connErr, db) =>
+      throw new Error connErr if connErr
 
-        fn(collection) for fn in @queue if @queue
-        delete @queue
+      db.authenticate opt.username, opt.password, (authErr)  => 
+        throw new Error authErr if authErr
 
-        collection.ensureIndex [ ['queue'], ['expires'], ['owner'] ], ->
+        db.collection 'mojo', (err, collection) =>
+          @mojo = collection
+
+          fn(collection) for fn in @queue if @queue
+          delete @queue
+
+          collection.ensureIndex [ ['queue'], ['expires'], ['owner'] ], ->
 
 
   # Execute the given function if the connection to the database has been
