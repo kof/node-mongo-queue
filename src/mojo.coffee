@@ -35,14 +35,30 @@ class exports.Connection
 
     # TODO: support replica sets
     server = new mongodb.Server opt.host || '127.0.0.1', opt.port || 27017
-    new mongodb.Db(opt.db, server, {}).open (err, db) =>
-      db.collection 'mojo', (err, collection) =>
-        @mojo = collection
+    new mongodb.Db(opt.db || 'queue', server, {}).open (err, db) =>
+      throw new Error err if err
 
-        fn(collection) for fn in @queue if @queue
-        delete @queue
+      afterConnectionEstablished = (err) =>
+        throw new Error err if err
 
-        collection.ensureIndex [ ['queue'], ['expires'], ['owner'] ], ->
+        # Make a lame read request to the database. This will return an error
+        # if the client is not authorized to access it.
+        db.collectionNames (err) =>
+          throw new Error err if err
+
+          db.collection 'mojo', (err, collection) =>
+            throw new Error err if err
+
+            @mojo = collection
+            fn(collection) for fn in @queue if @queue
+            delete @queue
+
+            collection.ensureIndex [ ['queue'], ['expires'], ['owner'] ], ->
+
+      if opt.username and opt.password
+        db.authenticate opt.username, opt.password, afterConnectionEstablished
+      else
+        afterConnectionEstablished null
 
 
   # Execute the given function if the connection to the database has been
