@@ -4,7 +4,7 @@
   "keywords": ["jobqueue", "mongodb"],
   "author": "Tomas Carnecky",
   "homepage": "https://github.com/wereHamster/mojo",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "licenses": [{ "type": "Unlicense", "url": "http://unlicense.org/" }],
   "engines": { "node": ">=0.4.0" },
   "directories": { "lib": "./lib" },

@@ -25,8 +25,8 @@ Example
         @complete()
 
     # Create a connection to the database
-    db = ... an opened node-mongodb-native database
-    connection = new mojo.Connection db, {}
+    options = host: 'localhost', port: 27017, db: 'test'
+    connection = new mojo.Connection options
 
     # Put some jobs into the queue
     connection.enqueue Addition.name, 1, 1
@@ -35,7 +35,7 @@ Example
     connection.enqueue Addition.name, 4, 8
 
     # Now you need a worker who will process the jobs
-    worker = new mojo.Worker connection, [ Addition ], {}
+    worker = new mojo.Worker connection, [ Addition ]
     worker.poll()
 
 
