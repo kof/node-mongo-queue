@@ -1,7 +1,7 @@
 {
   "name": "mojo",
   "description": "Node.js job queue backed by MongoDB",
-  "keywords": ["jobqueue", "mongodb"],
+  "keywords": ["queue", "jobqueue", "mongo", "mongodb"],
   "author": "Tomas Carnecky",
   "homepage": "https://github.com/wereHamster/mojo",
   "version": "0.0.3",
@@ -9,5 +9,5 @@
   "engines": { "node": ">=0.4.0" },
   "directories": { "lib": "./lib" },
   "main": "./lib/mojo",
-  "dependencies": { "mongodb": "0.9.2" }
+  "dependencies": { "mongodb": "~> 0.9.2" }
 }
