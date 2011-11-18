@@ -113,7 +113,7 @@ class exports.Connection
   # Release all timed out jobs, this makes them available for future
   # clients again. You should call this method regularly, possibly from
   # within the workers after every couple completed jobs.
-  cleanup: (queue, callback) ->
+  cleanup: (callback) ->
     @exec (mojo) ->
       mojo.update { timeout: { $lt: new Date } },
           { $unset: { timeout: 1, owner: 1 } }, { multi: 1 }, callback
