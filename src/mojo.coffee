@@ -1,4 +1,3 @@
-
 # **mojo** - a MongoDB job queue
 #
 # Jobs are stored in a collection and retreived or updated using the
@@ -173,7 +172,7 @@ class exports.Worker extends require('events').EventEmitter
     @templates.push template
 
     @connection.next template.name, @name, (err, doc) =>
-      if err?
+      if err? and err.message isnt 'No matching object found'
         @emit 'error', err
       else if doc?
         ++@pending
