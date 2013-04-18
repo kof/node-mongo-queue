@@ -28,6 +28,9 @@ Example
     options = host: 'localhost', port: 27017, db: 'test'
     connection = new mojo.Connection options
 
+    # Listen to connection errors
+    connection.on 'error', console.error
+
     # Put some jobs into the queue
     connection.enqueue Addition.name, 1, 1
     connection.enqueue Addition.name, 2, 4
@@ -36,6 +39,7 @@ Example
 
     # Now you need a worker who will process the jobs
     worker = new mojo.Worker connection, [ Addition ]
+    worker.on 'error', console.error
     worker.poll()
 
 
