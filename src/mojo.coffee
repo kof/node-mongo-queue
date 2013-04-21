@@ -11,21 +11,19 @@
 
 # Mojo is backed by MongoDB
 mongodb = require 'mongodb'
-
+EventEmitter = require('events').EventEmitter
 
 # The **Connection** class wraps the connection to MongoDB. It includes
 # methods to manipulate (add, remove, clear, ...) jobs in the queues.
-class exports.Connection
+class exports.Connection extends EventEmitter
 
   # Initialize with a reference to the MongoDB and optional options
   # hash. Two opitions are currently supported: expires and timeout.
   constructor: (options) ->
     options or options = {}
     @ensureConnection options
-
     @expires = options.expires or 60 * 60 * 1000
     @timeout = options.timeout or 10 * 1000
-
 
   # Open a connection to the MongoDB server. Queries created while we are
   # connecting are queued and executed after the connection is established.
@@ -35,24 +33,25 @@ class exports.Connection
     # TODO: support replica sets
     server = new mongodb.Server opt.host || '127.0.0.1', opt.port || 27017
     new mongodb.Db(opt.db || 'queue', server, {}).open (err, db) =>
-      throw new Error err if err
+      @emit('error', err) if err
 
       afterConnectionEstablished = (err) =>
-        throw new Error err if err
+        @emit('error', err) if err
 
         # Make a lame read request to the database. This will return an error
         # if the client is not authorized to access it.
         db.collectionNames (err) =>
-          throw new Error err if err
+          @emit('error', err) if err
 
           db.collection 'mojo', (err, collection) =>
-            throw new Error err if err
+            @emit('error', err) if err
 
             @mojo = collection
             fn(collection) for fn in @queue if @queue
             delete @queue
 
-            collection.ensureIndex [ ['queue'], ['expires'], ['owner'] ], ->
+            collection.ensureIndex [ ['expires'], ['owner'], ['queue'] ], (err) ->
+              @emit('error', err) if err
 
       if opt.username and opt.password
         db.authenticate opt.username, opt.password, afterConnectionEstablished
@@ -88,8 +87,10 @@ class exports.Connection
   # and process ID, you can later identify stuck workers.
   next: (queue, owner, callback) ->
     now = new Date; timeout = new Date(now.getTime() + @timeout)
+    query = { expires: { $gt: now }, owner: null }
+    if queue then query.queue = queue
     @exec (mojo) ->
-      mojo.findAndModify { queue, expires: { $gt: now }, owner: null },
+      mojo.findAndModify query,
         'expires', { $set: { timeout, owner } }, { new: 1 }, callback
 
 
@@ -157,7 +158,7 @@ class exports.Worker extends require('events').EventEmitter
 
     @name = [ require('os').hostname(), process.pid ].join ':'
     @timeout = options.timeout or 1000
-
+    @rotate = options.rotate or false
     @workers = options.workers or 3
     @pending = 0
 
@@ -167,21 +168,36 @@ class exports.Worker extends require('events').EventEmitter
     if @pending >= @workers
       return @sleep()
 
-    # Check the templates in round-robin order, one in each iteration.
-    template = @templates.shift()
-    @templates.push template
+    Template = @getTemplate()
+    templateName = if Template then Template.name
 
-    @connection.next template.name, @name, (err, doc) =>
+    @connection.next templateName, @name, (err, doc) =>
       if err? and err.message isnt 'No matching object found'
         @emit 'error', err
       else if doc?
         ++@pending
-        new template(@, doc).invoke()
+        if !Template then Template = @getTemplate(doc.queue)
+        if Template
+          new Template(@, doc).invoke()
+        else
+          @emit 'error', new Error("Unknown template '#{ name }'")
         process.nextTick =>
           @poll()
 
       @sleep()
 
+  getTemplate: (name) ->
+    Template = null
+    if name
+      @templates.some (_Template) =>
+        if _Template.name == name
+          Template = _Template
+          true
+    # Check the templates in round-robin order, one in each iteration.
+    else if @rotate
+      Template = @templates.shift()
+      @templates.push Template
+    Template
 
   # Sleep for a bit and then try to poll the queue again. If a timeout is
   # already active make sure to clear it first.
