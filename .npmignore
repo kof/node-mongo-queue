@@ -1,0 +1,4 @@
+.npmignore
+Makefile
+examples/
+src/
