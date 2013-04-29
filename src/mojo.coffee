@@ -49,8 +49,8 @@ class exports.Connection extends EventEmitter
             @emit('error', err) if err
 
     # Use an existing database connection if one is passed
-    if opt.dbConn
-      db = opt.dbConn;
+    if opt.db instanceof mongodb.Db
+      db = opt.db;
       return afterConnectionEstablished null
 
     # TODO: support replica sets
