@@ -4,12 +4,12 @@
   "keywords": ["queue", "jobqueue", "mongo", "mongodb"],
   "author": "Tomas Carnecky",
   "homepage": "https://github.com/wereHamster/mojo",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "licenses": [{ "type": "Unlicense", "url": "http://unlicense.org/" }],
   "engines": { "node": ">=0.4.0" },
   "directories": { "lib": "./lib" },
   "main": "./lib/mojo",
-  "dependencies": { "mongodb": "~> 1.2.14" },
+  "dependencies": { "mongodb": "~> 1.3" },
   "scripts": {
     "prepublish": "make compile"
   }
