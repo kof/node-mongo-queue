@@ -56,8 +56,9 @@ class exports.Connection extends EventEmitter
     # TODO: support replica sets
     # TODO: support connection URIs
     server = new mongodb.Server opt.host || '127.0.0.1', opt.port || 27017
-    new mongodb.Db(opt.db || 'queue', server, {w: 1}).open (err, db) =>
+    new mongodb.Db(opt.db || 'queue', server, {w: 1}).open (err, _db) =>
       @emit('error', err) if err
+      db = _db if _db
 
       if opt.username and opt.password
         db.authenticate opt.username, opt.password, afterConnectionEstablished
