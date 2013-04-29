@@ -48,13 +48,15 @@ class exports.Connection extends EventEmitter
           collection.ensureIndex [ ['expires'], ['owner'], ['queue'] ], (err) ->
             @emit('error', err) if err
 
+    # Use an existing database connection if one is passed
     if opt.dbConn
       db = opt.dbConn;
       return afterConnectionEstablished null
 
     # TODO: support replica sets
+    # TODO: support connection URIs
     server = new mongodb.Server opt.host || '127.0.0.1', opt.port || 27017
-    new mongodb.Db(opt.db || 'queue', server, {}).open (err, db) =>
+    new mongodb.Db(opt.db || 'queue', server, {w: 1}).open (err, db) =>
       @emit('error', err) if err
 
       if opt.username and opt.password
