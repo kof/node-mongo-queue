@@ -49,7 +49,8 @@ class exports.Connection extends EventEmitter
             @emit('error', err) if err
 
     # Use an existing database connection if one is passed
-    if opt.db instanceof mongodb.Db
+    # Use duck-typing because we can't rely on opt.db being instanceof mongodb.Db
+    if opt.db and opt.db.collectionNames
       db = opt.db;
       return afterConnectionEstablished null
 
