@@ -33,25 +33,21 @@ class exports.Connection extends EventEmitter
     afterConnectionEstablished = (err) =>
       @emit('error', err) if err
 
-      # Make a lame read request to the database. This will return an error
-      # if the client is not authorized to access it.
-      db.collectionNames (err) =>
+      db.collection 'mojo', (err, collection) =>
         @emit('error', err) if err
 
-        db.collection 'mojo', (err, collection) =>
+        @mojo = collection
+        fn(collection) for fn in @queue if @queue
+        delete @queue
+
+        collection.ensureIndex [ ['expires'], ['owner'], ['queue'] ], (err) ->
           @emit('error', err) if err
-
-          @mojo = collection
-          fn(collection) for fn in @queue if @queue
-          delete @queue
-
-          collection.ensureIndex [ ['expires'], ['owner'], ['queue'] ], (err) ->
-            @emit('error', err) if err
 
     # Use an existing database connection if one is passed
     # Use duck-typing because we can't rely on opt.db being instanceof mongodb.Db
     if opt.db and opt.db.collectionNames
       db = opt.db;
+      return db.once('open', afterConnectionEstablished) if db.state != 'connected'
       return afterConnectionEstablished null
 
     # TODO: support replica sets
