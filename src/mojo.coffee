@@ -40,7 +40,7 @@ class exports.Connection extends EventEmitter
         fn(collection) for fn in @queue if @queue
         delete @queue
 
-        collection.ensureIndex [ ['expires'], ['owner'], ['queue'] ], (err) ->
+        collection.ensureIndex [ ['expires'], ['owner'], ['queue'] ], (err) =>
           @emit('error', err) if err
 
     # Use an existing database connection if one is passed
