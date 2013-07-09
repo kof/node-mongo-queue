@@ -222,6 +222,7 @@ class exports.Worker extends require('events').EventEmitter
     cb = => --@pending; @poll()
 
     if err?
+      @emit 'error', err
       @connection.release doc, cb
     else
       @connection.complete doc, cb
