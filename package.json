@@ -13,7 +13,7 @@
     }
   ],
   "homepage": "https://github.com/wereHamster/mongo-queue",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "licenses": [{ "type": "Unlicense", "url": "http://unlicense.org/" }],
   "engines": { "node": ">=0.4.0" },
   "directories": { "lib": "./lib" },
