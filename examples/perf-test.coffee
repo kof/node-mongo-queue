@@ -1,12 +1,12 @@
 
-mojo = require '../src/mojo'
-connection = new mojo.Connection db: 'test'
+queue = require '../src/queue'
+connection = new queue.Connection db: 'test'
 
 # Keep track of the jobs / s we process
 numCompleted = 0
 lastReport = new Date().getTime()
 
-class Noop extends mojo.Template
+class Noop extends queue.Template
   perform: ->
     @complete()
 
@@ -32,6 +32,6 @@ producer = ->
 producer()
 
 # Create a worker which will process the jobs
-worker = new mojo.Worker connection, [ Noop ], workers: 9
+worker = new queue.Worker connection, [ Noop ], workers: 9
 worker.poll()
 

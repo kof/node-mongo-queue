@@ -1,4 +1,4 @@
-# **mojo** - a MongoDB job queue
+# **mongo-queue** - a MongoDB job queue
 #
 # Jobs are stored in a collection and retreived or updated using the
 # findAndModify command. This allows multiple workers to concurrently
@@ -9,7 +9,7 @@
 
 #### Connection
 
-# Mojo is backed by MongoDB
+# mongo-queue is backed by MongoDB
 mongodb = require 'mongodb'
 EventEmitter = require('events').EventEmitter
 
@@ -38,10 +38,10 @@ class exports.Connection extends EventEmitter
       db.collectionNames (err) =>
         @emit('error', err) if err
 
-        db.collection 'mojo', (err, collection) =>
+        db.collection 'queue', (err, collection) =>
           @emit('error', err) if err
 
-          @mojo = collection
+          @collection = collection
           fn(collection) for fn in @queue if @queue
           delete @queue
 
@@ -71,15 +71,15 @@ class exports.Connection extends EventEmitter
   # Execute the given function if the connection to the database has been
   # established. If not, put it into a queue so it can be executed later.
   exec: (fn) ->
-    @queue and @queue.push(fn) or fn(@mojo)
+    @queue and @queue.push(fn) or fn(@collection)
 
 
   # Remove all jobs from the queue. This is a brute-force method, useful if
-  # you want to reset mojo, for example in a test environment. Note that it
+  # you want to reset queue, for example in a test environment. Note that it
   # resets only a single queue, and not all.
   clear: (queue, callback) ->
-    @exec (mojo) ->
-      mojo.remove { queue }, callback
+    @exec (collection) ->
+      collection.remove { queue }, callback
 
 
   # Insert a new job into the queue. A job is just an array of arguments
@@ -87,8 +87,8 @@ class exports.Connection extends EventEmitter
   # up to the individual workers.
   enqueue: (queue, args..., callback)->
     expires = new Date new Date().getTime() + @expires
-    @exec (mojo) ->
-      mojo.insert { queue, expires, args }, callback
+    @exec (collection) ->
+      collection.insert { queue, expires, args }, callback
 
 
   # Fetch the next job from the queue. The owner argument is used to identify
@@ -98,24 +98,24 @@ class exports.Connection extends EventEmitter
     now = new Date; timeout = new Date(now.getTime() + @timeout)
     query = { expires: { $gt: now }, owner: null }
     if queue then query.queue = queue
-    @exec (mojo) ->
-      mojo.findAndModify query,
+    @exec (collection) ->
+      collection.findAndModify query,
         'expires', { $set: { timeout, owner } }, { new: 1 }, callback
 
 
   # After you are done with the job, mark it as completed. This will remove
   # the job from MongoDB.
   complete: (doc, callback) ->
-    @exec (mojo) ->
-      mojo.findAndModify { _id: doc._id },
+    @exec (collection) ->
+      collection.findAndModify { _id: doc._id },
         'expires', {}, { remove: 1 }, callback
 
 
   # You can also refuse to complete the job and leave it in the database
   # so that other workers can pick it up.
   release: (doc, callback) ->
-    @exec (mojo) ->
-      mojo.findAndModify { _id: doc._id },
+    @exec (collection) ->
+      collection.findAndModify { _id: doc._id },
         'expires', { $unset: { timeout: 1, owner: 1 } }, { new: 1 }, callback
 
 
@@ -123,8 +123,8 @@ class exports.Connection extends EventEmitter
   # clients again. You should call this method regularly, possibly from
   # within the workers after every couple completed jobs.
   cleanup: (callback) ->
-    @exec (mojo) ->
-      mojo.update { timeout: { $lt: new Date } },
+    @exec (collection) ->
+      collection.update { timeout: { $lt: new Date } },
           { $unset: { timeout: 1, owner: 1 } }, { multi: 1 }, callback
 
 
