@@ -1,8 +1,6 @@
 A MongoDB job queue
 ===========================
 
-**WARNING** API is subject to change.
-
 Its is a job queue inspired by Resque, but is trying to improve certain
 shortcomings of Resque's design. In particular, mongo-queue makes it impossible
 to loose jobs. Jobs are kept in the database until workers have successfully
