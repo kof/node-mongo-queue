@@ -30,28 +30,37 @@ class exports.Connection extends EventEmitter
   ensureConnection: (opt) ->
     @queue = []
 
-    # TODO: support replica sets
-    server = new mongodb.Server opt.host || '127.0.0.1', opt.port || 27017
-    new mongodb.Db(opt.db || 'queue', server, {}).open (err, db) =>
+    afterConnectionEstablished = (err) =>
       @emit('error', err) if err
 
-      afterConnectionEstablished = (err) =>
+      # Make a lame read request to the database. This will return an error
+      # if the client is not authorized to access it.
+      db.collectionNames (err) =>
         @emit('error', err) if err
 
-        # Make a lame read request to the database. This will return an error
-        # if the client is not authorized to access it.
-        db.collectionNames (err) =>
+        db.collection 'mojo', (err, collection) =>
           @emit('error', err) if err
 
-          db.collection 'mojo', (err, collection) =>
+          @mojo = collection
+          fn(collection) for fn in @queue if @queue
+          delete @queue
+
+          collection.ensureIndex [ ['expires'], ['owner'], ['queue'] ], (err) =>
             @emit('error', err) if err
 
-            @mojo = collection
-            fn(collection) for fn in @queue if @queue
-            delete @queue
+    # Use an existing database connection if one is passed
+    # Use duck-typing because we can't rely on opt.db being instanceof mongodb.Db
+    if opt.db and opt.db.collectionNames
+      db = opt.db;
+      return db.once('open', afterConnectionEstablished) if db.state != 'connected'
+      return afterConnectionEstablished null
 
-            collection.ensureIndex [ ['expires'], ['owner'], ['queue'] ], (err) ->
-              @emit('error', err) if err
+    # TODO: support replica sets
+    # TODO: support connection URIs
+    server = new mongodb.Server opt.host || '127.0.0.1', opt.port || 27017
+    new mongodb.Db(opt.db || 'queue', server, {w: 1}).open (err, _db) =>
+      @emit('error', err) if err
+      db = _db if _db
 
       if opt.username and opt.password
         db.authenticate opt.username, opt.password, afterConnectionEstablished
@@ -213,6 +222,7 @@ class exports.Worker extends require('events').EventEmitter
     cb = => --@pending; @poll()
 
     if err?
+      @emit 'error', err
       @connection.release doc, cb
     else
       @connection.complete doc, cb
