@@ -1,7 +1,7 @@
 {
   "name": "mongo-queue",
   "description": "Node.js job queue backed by MongoDB",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "keywords": ["queue", "jobqueue", "mongo", "mongodb"],
   "author": "Tomas Carnecky",
   "repository": {
@@ -12,7 +12,7 @@
   "engines": { "node": ">=0.4.0" },
   "directories": { "lib": "./lib" },
   "main": "./lib/queue",
-  "dependencies": { "mongodb": "~> 1.3" },
+  "dependencies": { "mongodb": "~1.4.6" },
   "scripts": {
     "prepublish": "make compile"
   },
