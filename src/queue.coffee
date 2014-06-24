@@ -12,7 +12,6 @@
 # mongo-queue is backed by MongoDB
 mongodb = require 'mongodb'
 EventEmitter = require('events').EventEmitter
-domain = try require 'domain'
 
 # The **Connection** class wraps the connection to MongoDB. It includes
 # methods to manipulate (add, remove, clear, ...) jobs in the queues.
@@ -143,16 +142,10 @@ class exports.Template
 
   # Bind `this` to this instance in @perform and catch any exceptions.
   invoke: ->
-    if domain
-      d = domain.create()
-      d.on 'error', @complete.bind(@)
-      d.run => @perform.apply @, @doc.args
-    else
-      try
-        @perform.apply @, @doc.args
-      catch err
-        @complete err
-
+    try
+      @perform.apply @, @doc.args
+    catch err
+      @complete err
 
   # Implement this method. If you don't, kittens will die!
   perform: (args...) ->
