@@ -25,6 +25,7 @@ class exports.Connection extends EventEmitter
     @ensureConnection options
     @expires = options.expires or 60 * 60 * 1000
     @timeout = options.timeout or 10 * 1000
+    @maxAttempts = options.maxAttempts or 5
 
   # Open a connection to the MongoDB server. Queries created while we are
   # connecting are queued and executed after the connection is established.
@@ -87,9 +88,10 @@ class exports.Connection extends EventEmitter
   # which are inserted into a queue. What these arguments mean is entirely
   # up to the individual workers.
   enqueue: (queue, args..., callback)->
-    expires = new Date new Date().getTime() + @expires
     @exec (collection) ->
-      collection.insert { queue, expires, args }, callback
+      expires = new Date new Date().getTime() + @expires
+      attempts = 0
+      collection.insert { queue, expires, args, attempts }, callback
 
 
   # Fetch the next job from the queue. The owner argument is used to identify
@@ -97,7 +99,7 @@ class exports.Connection extends EventEmitter
   # and process ID, you can later identify stuck workers.
   next: (queue, owner, callback) ->
     now = new Date; timeout = new Date(now.getTime() + @timeout)
-    query = { expires: { $gt: now }, owner: null }
+    query = { expires: { $gt: now }, owner: null, attempts: { $lt: @maxAttempts } }
     if queue then query.queue = queue
     @exec (collection) ->
       collection.findAndModify query,
@@ -117,7 +119,7 @@ class exports.Connection extends EventEmitter
   release: (doc, callback) ->
     @exec (collection) ->
       collection.findAndModify { _id: doc._id },
-        'expires', { $unset: { timeout: 1, owner: 1 } }, { new: 1 }, callback
+        'expires', { $unset: { timeout: 1, owner: 1 }, $inc: {attempts: 1} }, { new: 1 }, callback
 
 
   # Release all timed out jobs, this makes them available for future
