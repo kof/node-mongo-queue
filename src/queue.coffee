@@ -143,7 +143,7 @@ class exports.Template
   invoke: ->
     if domain
       d = domain.create()
-      d.on 'error', @complete.bind(this)
+      d.on 'error', @complete.bind(@)
       d.run => @perform.apply @, @doc.args
     else
       try
