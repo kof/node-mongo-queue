@@ -87,7 +87,7 @@ class exports.Connection extends EventEmitter
   # which are inserted into a queue. What these arguments mean is entirely
   # up to the individual workers.
   enqueue: (queue, args..., callback)->
-    @exec (collection) ->
+    @exec (collection) =>
       expires = new Date new Date().getTime() + @expires
       attempts = 0
       collection.insert { queue, expires, args, attempts }, callback
