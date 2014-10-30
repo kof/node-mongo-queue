@@ -1,10 +1,10 @@
 # **mongo-queue** - a MongoDB job queue
 #
-# Jobs are stored in a collection and retreived or updated using the
+# Jobs are stored in a collection and retrieved or updated using the
 # findAndModify command. This allows multiple workers to concurrently
 # access the queue. Each job has an expiration date, and once acquired by
 # a worker, also a timeout. Old jobs and stuck workers can so be identified
-# and dealed with appropriately.
+# and dealt with appropriately.
 
 
 #### Connection
@@ -18,7 +18,7 @@ EventEmitter = require('events').EventEmitter
 class exports.Connection extends EventEmitter
 
   # Initialize with a reference to the MongoDB and optional options
-  # hash. Two opitions are currently supported: expires and timeout.
+  # hash. Two options are currently supported: expires and timeout.
   constructor: (options) ->
     options or options = {}
     @ensureConnection options
@@ -49,15 +49,15 @@ class exports.Connection extends EventEmitter
           collection.ensureIndex [ ['expires'], ['owner'], ['queue'] ], (err) =>
             @emit('error', err) if err
 
-    # Use an existing database connection if one is passed
-    # Use duck-typing because we can't rely on opt.db being instanceof mongodb.Db
+    # Use an existing database connection if one is passed
+    # Use duck-typing because we can't rely on opt.db being instanceof mongodb.Db
     if opt.db and opt.db.collectionNames
       db = opt.db;
       return db.once('open', afterConnectionEstablished) if db.state != 'connected'
       return afterConnectionEstablished null
 
     # TODO: support replica sets
-    # TODO: support connection URIs
+    # TODO: support connection URIs
     server = new mongodb.Server opt.host || '127.0.0.1', opt.port || 27017
     new mongodb.Db(opt.db || 'queue', server, {w: 1}).open (err, _db) =>
       @emit('error', err) if err
@@ -88,8 +88,11 @@ class exports.Connection extends EventEmitter
   # up to the individual workers.
   enqueue: (queue, args..., callback)->
     @exec (collection) =>
-      expires = new Date new Date().getTime() + @expires
+      startDate = queue.startDate or Date.now()
+      expires = new Date(startDate + (queue.expires or @expires))
       attempts = 0
+      queue = queue.queue or queue
+
       collection.insert { queue, expires, args, attempts }, callback
 
 
