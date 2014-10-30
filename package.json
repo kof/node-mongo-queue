@@ -2,17 +2,36 @@
   "name": "mongo-queue",
   "description": "Node.js job queue backed by MongoDB",
   "version": "0.1.9",
-  "keywords": ["queue", "jobqueue", "mongo", "mongodb"],
+  "keywords": [
+    "queue",
+    "jobqueue",
+    "mongo",
+    "mongodb"
+  ],
   "author": "Tomas Carnecky",
   "repository": {
     "type": "git",
     "url": "git://github.com/kof/node-mongo-queue"
   },
-  "licenses": [{ "type": "Unlicense", "url": "http://unlicense.org/" }],
-  "engines": { "node": ">=0.4.0" },
-  "directories": { "lib": "./lib" },
+  "licenses": [
+    {
+      "type": "Unlicense",
+      "url": "http://unlicense.org/"
+    }
+  ],
+  "engines": {
+    "node": ">=0.4.0"
+  },
+  "directories": {
+    "lib": "./lib"
+  },
   "main": "./lib/queue",
-  "dependencies": { "mongodb": "~1.4.6" },
+  "dependencies": {
+    "mongodb": "~1.4.6"
+  },
+  "devDependencies": {
+    "coffee-script": "^1.8.0"
+  },
   "scripts": {
     "prepublish": "make compile"
   },

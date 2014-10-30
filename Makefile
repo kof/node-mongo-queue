@@ -5,7 +5,7 @@ test:
 
 
 compile:
-	coffee -c -o lib src/*.coffee
+	./node_modules/.bin/coffee -c -o lib src/*.coffee
 
 clean:
 	rm -fr lib/
