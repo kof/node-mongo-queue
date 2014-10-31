@@ -89,12 +89,15 @@ class exports.Connection extends EventEmitter
   enqueue: (queue, args..., callback)->
     @exec (collection) =>
       return callback(new Error('Last argument must be a callback')) if typeof callback isnt 'function'
-      startDate = queue.startDate or Date.now()
+      scheduledDate = queue.startDate if queue.startDate
+      startDate = scheduledDate or Date.now()
       expires = new Date(+startDate + (queue.expires or @expires))
       attempts = 0
       queue = queue.queue or queue
 
-      collection.insert { queue, expires, args, attempts }, callback
+      task = { queue, expires, args, attempts }
+      task.startDate = scheduledDate if scheduledDate
+      collection.insert task, callback
 
 
   # Fetch the next job from the queue. The owner argument is used to identify
@@ -102,7 +105,16 @@ class exports.Connection extends EventEmitter
   # and process ID, you can later identify stuck workers.
   next: (queue, owner, callback) ->
     now = new Date; timeout = new Date(now.getTime() + @timeout)
-    query = { expires: { $gt: now }, owner: null, attempts: { $lt: @maxAttempts } }
+    query =
+      expires: { $gt: now }
+      $or: [
+        { startDate: { $lte: now } },
+        { startDate: { $exists: false } },
+      ]
+      owner: null
+      attempts:
+        $lt: @maxAttempts
+
     if queue then query.queue = queue
     @exec (collection) ->
       collection.findAndModify query,
