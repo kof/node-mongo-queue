@@ -2,3 +2,5 @@
 Makefile
 examples/
 src/
+test/
+coverage/

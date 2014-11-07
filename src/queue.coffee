@@ -1,10 +1,10 @@
 # **mongo-queue** - a MongoDB job queue
 #
-# Jobs are stored in a collection and retreived or updated using the
+# Jobs are stored in a collection and retrieved or updated using the
 # findAndModify command. This allows multiple workers to concurrently
 # access the queue. Each job has an expiration date, and once acquired by
 # a worker, also a timeout. Old jobs and stuck workers can so be identified
-# and dealed with appropriately.
+# and dealt with appropriately.
 
 
 #### Connection
@@ -18,46 +18,46 @@ EventEmitter = require('events').EventEmitter
 class exports.Connection extends EventEmitter
 
   # Initialize with a reference to the MongoDB and optional options
-  # hash. Two opitions are currently supported: expires and timeout.
+  # hash. Two options are currently supported: expires and timeout.
   constructor: (options) ->
     options or options = {}
-    @ensureConnection options
     @expires = options.expires or 60 * 60 * 1000
     @timeout = options.timeout or 10 * 1000
     @maxAttempts = options.maxAttempts or 5
+    @queue = []
+    setImmediate () =>
+      @ensureConnection options
 
   # Open a connection to the MongoDB server. Queries created while we are
   # connecting are queued and executed after the connection is established.
   ensureConnection: (opt) ->
-    @queue = []
-
     afterConnectionEstablished = (err) =>
-      @emit('error', err) if err
+      return @emit('error', err) if err
 
       # Make a lame read request to the database. This will return an error
       # if the client is not authorized to access it.
       db.collectionNames (err) =>
-        @emit('error', err) if err
+        return @emit('error', err) if err
 
         db.collection 'queue', (err, collection) =>
-          @emit('error', err) if err
+          return @emit('error', err) if err
 
           @collection = collection
           fn(collection) for fn in @queue if @queue
           delete @queue
 
           collection.ensureIndex [ ['expires'], ['owner'], ['queue'] ], (err) =>
-            @emit('error', err) if err
+            if err then @emit('error', err) else @emit('connected')
 
-    # Use an existing database connection if one is passed
-    # Use duck-typing because we can't rely on opt.db being instanceof mongodb.Db
+    # Use an existing database connection if one is passed
+    # Use duck-typing because we can't rely on opt.db being instanceof mongodb.Db
     if opt.db and opt.db.collectionNames
       db = opt.db;
       return db.once('open', afterConnectionEstablished) if db.state != 'connected'
       return afterConnectionEstablished null
 
     # TODO: support replica sets
-    # TODO: support connection URIs
+    # TODO: support connection URIs
     server = new mongodb.Server opt.host || '127.0.0.1', opt.port || 27017
     new mongodb.Db(opt.db || 'queue', server, {w: 1}).open (err, _db) =>
       @emit('error', err) if err
@@ -88,8 +88,12 @@ class exports.Connection extends EventEmitter
   # up to the individual workers.
   enqueue: (queue, args..., callback)->
     @exec (collection) =>
-      expires = new Date new Date().getTime() + @expires
+      return callback(new Error('Last argument must be a callback')) if typeof callback isnt 'function'
+      startDate = queue.startDate or Date.now()
+      expires = new Date(+startDate + (queue.expires or @expires))
       attempts = 0
+      queue = queue.queue or queue
+
       collection.insert { queue, expires, args, attempts }, callback
 
 
@@ -174,6 +178,8 @@ class exports.Worker extends require('events').EventEmitter
 
 
   poll: ->
+    return if @stopped
+
     # If there are too many pending jobs, sleep for a bit.
     if @pending >= @workers
       return @sleep()
@@ -193,6 +199,8 @@ class exports.Worker extends require('events').EventEmitter
           @emit 'error', new Error("Unknown template '#{ name }'")
         process.nextTick =>
           @poll()
+      else
+        @emit 'drained' if @pending is 0
 
       @sleep()
 
@@ -213,18 +221,28 @@ class exports.Worker extends require('events').EventEmitter
   # already active make sure to clear it first.
   sleep: ->
     clearTimeout @pollTimeout if @pollTimeout
-    @pollTimeout = setTimeout =>
-      @pollTimeout = null
-      @poll()
-    , @timeout
+
+    if not @stopped
+      @pollTimeout = setTimeout =>
+        @pollTimeout = null
+        @poll()
+      , @timeout
 
 
   complete: (err, doc) ->
-    cb = => --@pending; @poll()
+    cb = =>
+      --@pending
+      @poll() if not @stopped
+      @emit 'stopped' if @pending is 0
 
     if err?
       @emit 'error', err
       @connection.release doc, cb
     else
       @connection.complete doc, cb
+
+  stop: () ->
+    @stopped = true
+    clearTimeout @pollTimeout
+    @emit 'stopped' if @pending is 0
 
