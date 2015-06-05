@@ -110,7 +110,7 @@ test 'scheduled task', () ->
         queue: Addition.name
         startDate: startDate
 
-      conn.enqueue task, 1, 3, (args...) ->
+      conn.enqueue task, 1, 3, () ->
         ok true, 'should be called when enqueued'
 
       worker = new queue.Worker conn, [ Addition ]

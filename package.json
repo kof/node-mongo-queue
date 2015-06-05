@@ -27,12 +27,12 @@
   },
   "main": "./lib/queue",
   "dependencies": {
-    "mongodb": "~1.4.6"
+    "mongodb": "^2.0.33"
   },
   "devDependencies": {
-    "coffee-script": "^1.8.0",
-    "lodash": "^2.4.1",
-    "qunit": "^0.7.5"
+    "coffee-script": "^1.9.3",
+    "lodash": "^3.9.3",
+    "qunit": "^0.7.6"
   },
   "scripts": {
     "prepublish": "make compile",

@@ -36,7 +36,7 @@ class exports.Connection extends EventEmitter
 
       # Make a lame read request to the database. This will return an error
       # if the client is not authorized to access it.
-      db.collectionNames (err) =>
+      db.collections (err) =>
         return @emit('error', err) if err
 
         db.collection 'queue', (err, collection) =>
@@ -50,23 +50,25 @@ class exports.Connection extends EventEmitter
             if err then @emit('error', err) else @emit('connected')
 
     # Use an existing database connection if one is passed
-    # Use duck-typing because we can't rely on opt.db being instanceof mongodb.Db
-    if opt.db and opt.db.collectionNames
+    if opt.db instanceof mongodb.Db
       db = opt.db;
-      return db.once('open', afterConnectionEstablished) if db.state != 'connected'
+      return db.once('open', afterConnectionEstablished) unless db.serverConfig.isConnected()
       return afterConnectionEstablished null
 
     # TODO: support replica sets
     # TODO: support connection URIs
-    server = new mongodb.Server opt.host || '127.0.0.1', opt.port || 27017
-    new mongodb.Db(opt.db || 'queue', server, {w: 1}).open (err, _db) =>
+
+    url = "mongodb://"
+
+    if opt.username and opt.password
+      url += encodeURIComponent("#{opt.username}:#{opt.password}") + '@'
+
+    url += "#{opt.host || '127.0.0.1'}:#{opt.port || 27017}/#{opt.db || 'queue'}?w=1"
+
+    mongodb.MongoClient.connect url, (err, _db) =>
       @emit('error', err) if err
       db = _db if _db
-
-      if opt.username and opt.password
-        db.authenticate opt.username, opt.password, afterConnectionEstablished
-      else
-        afterConnectionEstablished null
+      afterConnectionEstablished null
 
 
   # Execute the given function if the connection to the database has been
@@ -97,7 +99,7 @@ class exports.Connection extends EventEmitter
 
       task = { queue, expires, args, attempts }
       task.startDate = scheduledDate if scheduledDate
-      collection.insert task, callback
+      collection.insertOne task, callback
 
 
   # Fetch the next job from the queue. The owner argument is used to identify
@@ -115,26 +117,33 @@ class exports.Connection extends EventEmitter
       attempts:
         $lt: @maxAttempts
 
+    update = { $set: { timeout, owner } }
+    options = { sort: { expires: 1 }, returnOriginal: false }
+
     if queue then query.queue = queue
     @exec (collection) ->
-      collection.findAndModify query,
-        'expires', { $set: { timeout, owner } }, { new: 1 }, callback
+      collection.findOneAndUpdate query, update, options, (err, result) -> callback err, result?.value
 
 
   # After you are done with the job, mark it as completed. This will remove
   # the job from MongoDB.
   complete: (doc, callback) ->
     @exec (collection) ->
-      collection.findAndModify { _id: doc._id },
-        'expires', {}, { remove: 1 }, callback
+      query = { _id: doc._id }
+      options = { sort: { expires: 1 } }
+
+      collection.findOneAndDelete query, options, (err, result) -> callback err, result?.value
 
 
   # You can also refuse to complete the job and leave it in the database
   # so that other workers can pick it up.
   release: (doc, callback) ->
     @exec (collection) ->
-      collection.findAndModify { _id: doc._id },
-        'expires', { $unset: { timeout: 1, owner: 1 }, $inc: {attempts: 1} }, { new: 1 }, callback
+      query = { _id: doc._id }
+      update = { $unset: { timeout: 1, owner: 1 }, $inc: {attempts: 1} }
+      options = { sort: { expires: 1 }, returnOriginal: false }
+
+      collection.findOneAndUpdate query, update, options, (err, result) -> callback err, result?.value
 
 
   # Release all timed out jobs, this makes them available for future
@@ -142,8 +151,11 @@ class exports.Connection extends EventEmitter
   # within the workers after every couple completed jobs.
   cleanup: (callback) ->
     @exec (collection) ->
-      collection.update { timeout: { $lt: new Date } },
-          { $unset: { timeout: 1, owner: 1 } }, { multi: 1 }, callback
+      query = { timeout: { $lt: new Date } }
+      update = { $unset: { timeout: 1, owner: 1 } }
+      options = { multi: 1 }
+
+      collection.update query, update, options, callback
 
 
 
@@ -208,7 +220,7 @@ class exports.Worker extends require('events').EventEmitter
         if Template
           new Template(@, doc).invoke()
         else
-          @emit 'error', new Error("Unknown template '#{ name }'")
+          @emit 'error', new Error("Unknown template '#{ @name }'")
         process.nextTick =>
           @poll()
       else
