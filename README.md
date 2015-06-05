@@ -1,6 +1,6 @@
 # A MongoDB job queue
 
-[![Build Status](https://secure.travis-ci.org/kof/node-mongo-queue.svg)](http://travis-ci.org/hapijs/joi)
+[![Build Status](https://secure.travis-ci.org/kof/node-mongo-queue.svg)](http://travis-ci.org/kof/node-mongo-queue)
 
 Its is a job queue inspired by Resque, but is trying to improve certain
 shortcomings of Resque's design. In particular, mongo-queue makes it impossible
