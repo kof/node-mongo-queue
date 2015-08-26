@@ -4,7 +4,7 @@
 
 Its is a job queue inspired by Resque, but is trying to improve certain
 shortcomings of Resque's design. In particular, mongo-queue makes it impossible
-to loose jobs. Jobs are kept in the database until workers have successfully
+to lose jobs. Jobs are kept in the database until workers have successfully
 completed them and only then are they removed from the database.
 
 Even if your host or application crashes hard (without chance to catch the
