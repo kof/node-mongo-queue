@@ -61,7 +61,7 @@ class exports.Connection extends EventEmitter
     url = "mongodb://"
 
     if opt.username and opt.password
-      url += encodeURIComponent("#{opt.username}:#{opt.password}") + '@'
+      url += encodeURIComponent("#{opt.username}")+":"+encodeURIComponent("#{opt.password}") + '@'
 
     url += "#{opt.host || '127.0.0.1'}:#{opt.port || 27017}/#{opt.db || 'queue'}?w=1"
 
