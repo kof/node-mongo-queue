@@ -12,6 +12,7 @@
 # mongo-queue is backed by MongoDB
 mongodb = require 'mongodb'
 EventEmitter = require('events').EventEmitter
+URL = require 'url'
 
 # The **Connection** class wraps the connection to MongoDB. It includes
 # methods to manipulate (add, remove, clear, ...) jobs in the queues.
@@ -58,12 +59,13 @@ class exports.Connection extends EventEmitter
     # TODO: support replica sets
     # TODO: support connection URIs
 
-    url = "mongodb://"
-
-    if opt.username and opt.password
-      url += encodeURIComponent("#{opt.username}")+":"+encodeURIComponent("#{opt.password}") + '@'
-
-    url += "#{opt.host || '127.0.0.1'}:#{opt.port || 27017}/#{opt.db || 'queue'}?w=1"
+    url = URL.format
+      protocol: 'mongodb'
+      slashes: true
+      auth: "#{opt.username}:#{opt.password}" if (opt.username && opt.password)
+      host: "#{opt.host || '127.0.0.1'}:#{opt.port || 27017}"
+      pathname: "/#{opt.db || 'queue'}"
+      search: '?w=1'
 
     mongodb.MongoClient.connect url, (err, _db) =>
       @emit('error', err) if err
